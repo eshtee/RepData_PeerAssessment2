@@ -1,0 +1,97 @@
+---
+title: "Most harmful event respect to population health and economic consequences across US"
+author: "Syed I Ahmed"
+date: "19 September 2015"
+output: html_document
+---
+
+#Synopsis
+This report covers the impact of storm event on population across US. Impact is measured in terms of both health and economic consequences. Raw data is provided by the U.S. National Oceanic and Atmospheric Administration's (NOAA). For this report multiple steps are taken to clean the data and results are presented in graphical format.
+
+```{r echo=FALSE,warning=FALSE,message=FALSE}
+#loading required libraries
+require(dplyr)
+require(ggplot2)
+require(reshape2)
+require(scales)
+```
+#Data Processing
+Raw data is loaded using read.csv function
+```{r cache = TRUE,warning=FALSE,message=FALSE}
+
+#loading storm data
+storm_data <- tbl_df(read.csv(bzfile("repdata-data-StormData.csv.bz2")))
+```
+
+Event types are cleaned and normalized.  
+```{r cache = TRUE,warning=FALSE,message=FALSE}
+#clean storm data 
+storm_data$EVTYPE <- sub("^EXCESSIVE ", "", storm_data$EVTYPE)
+storm_data$EVTYPE <- sub("^STRONG ", "", storm_data$EVTYPE)
+storm_data$EVTYPE <- sub("^HIGH ", "", storm_data$EVTYPE)
+storm_data$EVTYPE <- sub("^HEAVY ", "", storm_data$EVTYPE)
+storm_data$EVTYPE <- sub("^EXTREME ", "", storm_data$EVTYPE)
+storm_data$EVTYPE <- sub("^TSTM ", "THUNDERSTORM ", storm_data$EVTYPE)
+storm_data$EVTYPE <- sub("^HEAT WAVE", "HEAT", storm_data$EVTYPE)
+storm_data$EVTYPE <- sub("CURRENTS$", "CURRENT", storm_data$EVTYPE)
+storm_data$EVTYPE <- sub("WINDS$", "WIND", storm_data$EVTYPE)
+storm_data$EVTYPE <- sub("^COLD/WIND CHILL$", "COLD", storm_data$EVTYPE)
+```
+Data is cleaned and only required fields for the analysis are kept.
+```{r warning=FALSE,message=FALSE}
+#summarizing data relevent for the analysis 
+clean_storm_data<-storm_data %>% 
+  select (EVTYPE,FATALITIES,INJURIES,PROPDMG,PROPDMGEXP,CROPDMG,CROPDMGEXP) %>% 
+  group_by(EVTYPE) %>% 
+  summarise(FATALITIES=sum(FATALITIES),INJURIES=sum(INJURIES),PROPDMG=sum(PROPDMG),CROPDMG=sum(CROPDMG)) 
+```
+
+#Results
+The following graph shows total health related issues caused by storms of different type in descending order.
+The plot shows that Tornadoes are the worst storm event in US when it comes to health related issues (fatalities and injuries). 
+The plot also shows that there are a lot of injuries cause as compared to fatalities.
+```{r warning=FALSE,message=FALSE}
+
+#preparing data for top 12 storm types cause health issue 
+top_12_health <- clean_storm_data %>%
+  select(event_type=EVTYPE,fatalities=FATALITIES,injuries=INJURIES) %>%
+  arrange(desc(fatalities),desc(injuries)) %>%
+  top_n(12,fatalities+injuries) %>%
+  melt(value.name = "value",variable.name="health_issue")  
+
+#plotting data for top 12 storm types cause health issue 
+ggplot(top_12_health, aes(x=event_type, y=value,fill=health_issue)) + 
+  geom_bar(stat="identity") +
+  scale_x_discrete(limits=rev(unique(top_12_health$event_type))) +
+  coord_flip() + 
+  xlab("Event type") +
+  ylab("Number of health related issues") +
+  ggtitle("Total health related issues caused by storms of different type")
+```
+
+The following graph shows total economic consequences caused by storms of different type in descending order.
+The plot shows that Tornadoes are the worst storm event in US when it comes to economic consequences (property and crop damage).
+The plot also shows that there is a lot more property damage as compared to crop damage.
+
+```{r warning=FALSE,message=FALSE}
+
+#preparing data for top 12 storm types cause economic damage 
+top_12_economic <- clean_storm_data %>%
+  select(event_type=EVTYPE,property_damage=PROPDMG,crop_damage=CROPDMG) %>%
+  arrange(desc(property_damage),desc(crop_damage)) %>%
+  top_n(12,property_damage+crop_damage) %>%
+  melt(value.name = "value",variable.name="damage_type")  
+
+#plotting data for top 12 storm types cause economic damage 
+ggplot(top_12_economic, aes(x=event_type, y=value,fill=damage_type)) + 
+  geom_bar(stat="identity") +
+  scale_x_discrete(limits=rev(unique(top_12_economic$event_type))) +
+  scale_y_continuous(labels = comma) +
+  coord_flip() + 
+  xlab("Event type") +
+  ylab("Economic consequences") +
+  ggtitle("Economic consequences caused by storms of different type")
+
+```
+
+Both plots show that Tornadoes are the worst storm event in US.
